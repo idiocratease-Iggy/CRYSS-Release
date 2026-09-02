@@ -1,17 +1,115 @@
-# Python virtual environments and local tooling
-.venv/
-.vscode/
-.pytest_cache/
+# ------------------------------
+# Python bytecode and caches
+# ------------------------------
 __pycache__/
 *.py[cod]
+*$py.class
 
-# Build artifacts
+# ------------------------------
+# Native / compiled artifacts
+# ------------------------------
+*.so
+*.pyd
+*.dll
+*.dylib
+*.o
+*.a
+*.obj
+*.lib
+
+# ------------------------------
+# Virtual environments
+# ------------------------------
+.venv/
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# ------------------------------
+# Environment and secrets
+# ------------------------------
+.env
+.env.*
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+secrets.*
+*.secret
+
+# ------------------------------
+# Tooling caches / test / coverage
+# ------------------------------
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.pyre/
+.pytype/
+.hypothesis/
+.tox/
+.nox/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+
+# ------------------------------
+# Packaging / build outputs
+# ------------------------------
 build/
 dist/
-*.exe
-*.log
-data/
+site/
+.eggs/
+*.egg-info/
+*.egg
+pip-wheel-metadata/
+wheels/
 
-# OS/editor metadata
+# PyInstaller outputs
+*.spec.bak
+
+# ------------------------------
+# Logs and runtime artifacts
+# ------------------------------
+*.log
+logs/
+tmp/
+temp/
+*.tmp
+
+# ------------------------------
+# Jupyter / notebooks
+# ------------------------------
+.ipynb_checkpoints/
+
+# ------------------------------
+# IDE / editor / OS files
+# ------------------------------
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
 .DS_Store
 Thumbs.db
+desktop.ini
+
+# ------------------------------
+# CRYSS project-specific ignores
+# ------------------------------
+# Keep this line if tree snapshots are local diagnostics
+tree.txt
+
+# Generated data artifacts (uncomment if you want cleaner repo history):
+# data/tmp/
+# cryss_core/data/tmp/
+# data/*.png
+# data/*CRYSS_Rmax*.xlsx
+# data/*_err*.xlsx
+
+# If you decide to keep only canonical input templates tracked:
+# data/*.xlsx
+# !data/*baseline*.xlsx
