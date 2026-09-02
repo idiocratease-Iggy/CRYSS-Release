@@ -1,0 +1,17 @@
+# Python virtual environments and local tooling
+.venv/
+.vscode/
+.pytest_cache/
+__pycache__/
+*.py[cod]
+
+# Build artifacts
+build/
+dist/
+*.exe
+*.log
+data/
+
+# OS/editor metadata
+.DS_Store
+Thumbs.db
