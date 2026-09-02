@@ -2,6 +2,28 @@
 
 Core CRYSS Pipeline for generating, parsing, evaluating, and optimizing mixture compositions.
 
+## Scientific Scope and Industrial Positioning
+
+CRYSS is a **thermodynamically grounded, mechanistic scientific software engine** provided in a **lightweight, non-GUI Python implementation**.
+
+The current release executes a focused, production-relevant workflow:
+
+1. Ingest structured experimental/process inputs (Excel-based),
+2. Run the CRYSS Core Engine,
+3. Return ranked and classified candidates based on **predicted maximum crystallization yield under optimization constraints**.
+
+This architecture is intentionally suited for **API-first deployment** and integration into broader digital and physical development environments.  
+For organizations operating in hardware, process engineering, formulation, or automated lab ecosystems, CRYSS can function as an integration-ready decision core for:
+
+- automated execution pipelines,
+- rapid scenario screening,
+- closed-loop process analysis,
+- and downstream knowledge generation.
+
+In practical terms, CRYSS is designed to accelerate progression from:
+
+**data → information → actionable knowledge**
+
 ## Repository
 
 - **Owner:** `idiocratease-Iggy`
