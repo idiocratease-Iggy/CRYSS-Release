@@ -1,5 +1,5 @@
 cff-version: 1.2.0
-title: "CRYSS: Crystallisation Research & Yield Simulation Suite"
+title: "CRYSS: Crystallization Research & Yield Simulation Suite"
 version: "1.0"
 date-released: 2026-09-07
 authors:
@@ -7,25 +7,25 @@ authors:
     given-names: "Alan A."
     orcid: "https://orcid.org/0000-0000-0000-0000"
 abstract: >
-  CRYSS is an open-source crystallisation modelling and analysis suite,
+  CRYSS is an open-source crystallization modeling and analysis suite,
   including the CRYSS DOE engine and NODES numerical solver. It provides
-  tools for eutectic modelling, optimisation, diagnostics, and experimental
+  tools for eutectic modeling, optimization, diagnostics, and experimental
   workflow support. Released under the MIT License.
 repository-code: "https://github.com/idiocratease-Iggy/CRYSS-Release-V1.0"
 url: "https://cryss.co.uk"
 license: "MIT"
 keywords:
-  - crystallisation
-  - modelling
+  - crystallization
+  - modeling
   - eutectics
-  - optimisation
+  - optimization
   - DOE
   - numerical solvers
   - NODES
   - CRYSS
 preferred-citation:
   type: misc
-  title: "CRYSS: Crystallisation Research & Yield Simulation Suite (Version 1.0)"
+  title: "CRYSS: Crystallization Research & Yield Simulation Suite (Version 1.0)"
   authors:
     - family-names: "Smith"
       given-names: "Alan A."
