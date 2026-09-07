@@ -202,6 +202,10 @@ git tag -a v1.0.0 -m "CRYSS Release v1.0.0"
 git push origin v1.0.0
 ```
 
+## Citation
+
+See [`citation.md`](./citation.md) for the recommended citation format.
+
 ## License
 
 See [`LICENSE`](./LICENSE).
