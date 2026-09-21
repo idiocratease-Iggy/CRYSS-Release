@@ -2,7 +2,7 @@
 
 If you use CRYSS, CRYSS DOE, or NODES in academic work, publications, theses, or technical reports, please cite the project using the following reference:
 
-**Smith, A. A. (2026). CRYSS: Crystallization Research & Yield Simulation Suite (Version 1.0).**  
+**Smith, A. A. (2026). CRYSS: Crystallization Screening System (Version 1.0).**  
 https://cryss.co.uk
 
 ## BibTeX
@@ -10,7 +10,7 @@ https://cryss.co.uk
 ```bibtex
 @misc{cryss2026,
   author       = {Smith, Alan A.},
-  title        = {CRYSS: Crystallization Research \& Yield Simulation Suite},
+  title        = {CRYSS: Crystallization Screening System},
   year         = {2026},
   version      = {1.0},
   url          = {https://cryss.co.uk},
