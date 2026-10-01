@@ -25,10 +25,13 @@
 
 from __future__ import annotations
 
+import logging
 import sys
 import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog
+
+logging.basicConfig(level=logging.INFO, format="%(levelname)s:%(name)s:%(message)s")
 
 project_root = Path(__file__).resolve().parent.parent
 if str(project_root) not in sys.path:
@@ -90,9 +93,9 @@ def run_parser(input_file: Path | None = None, output_file: Path | None = None):
     global LAST_INPUT_FILE
     LAST_INPUT_FILE = input_file
 
-    # The diagnostic Excel export is intentionally disabled in the cryss-core flow.
-    mixtures = parse_nodes_excel(input_file, write_excel=False, output_path=output_file, quiet=True)
+    # V1.0 release build: keep the parser silent unless a caller explicitly enables QC output.
     msd.QC_PRINT = False
+    mixtures = parse_nodes_excel(input_file, write_excel=False, output_path=output_file, quiet=True)
     return mixtures
 
 

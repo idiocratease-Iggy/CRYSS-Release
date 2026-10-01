@@ -1,0 +1,161 @@
+Folder PATH listing for volume My Book Duo
+Volume serial number is 00000035 9402:9DAA
+I:.
+¦   .gitignore
+¦   CRYSS.spec
+¦   LICENSE
+¦   main.py
+¦   mixture_input.py
+¦   qc_settings.py
+¦   tree.txt
+¦   
++---cryss_core
+¦   ¦   cryss.png
+¦   ¦   harness.py
+¦   ¦   input_writer.py
+¦   ¦   mixture_generator.py
+¦   ¦   objective_function.py
+¦   ¦   ojective_finction.py
+¦   ¦   report_component_errors.py
+¦   ¦   run_parser_then_optimise.py
+¦   ¦   __init__.py
+¦   ¦   
+¦   +---data
+¦       +---tmp
+¦               260830_1133_Vol03_Comps_only_CRYSS_Rmax.xlsx
+¦               
++---data
+¦   ¦   260830_1133_Vol01.xlsx
+¦   ¦   260830_1133_Vol03.xlsx
+¦   ¦   260830_1133_Vol03_Comps_only.xlsx
+¦   ¦   260830_1133_Vol03_Comps_only_CRYSS_Rmax.xlsx
+¦   ¦   260831_0945_Vol03.xlsx
+¦   ¦   260831_1626_Vol01.xlsx
+¦   ¦   260831_1626_Vol02.xlsx
+¦   ¦   260831_1626_Vol02_CRYSS_Rmax.xlsx
+¦   ¦   260831_1626_Vol02_CRYSS_Rmax1.xlsx
+¦   ¦   260831_1626_Vol03 - input_batch_baseline.xlsx
+¦   ¦   260831_1626_Vol03.xlsx
+¦   ¦   260901_1656_Vol01.xlsx
+¦   ¦   260901_1656_Vol01_CRYSS_Rmax.xlsx
+¦   ¦   260901_1656_Vol02.xlsx
+¦   ¦   260901_1656_Vol03.xlsx
+¦   ¦   260902_0916_CRYSS_Rmax.xlsx
+¦   ¦   260902_0921_CRYSS_Rmax.xlsx
+¦   ¦   260902_0927_CRYSS_Rmax.xlsx
+¦   ¦   260902_0946_CRYSS_Rmax.xlsx
+¦   ¦   best_mc_vs_best_opt.png
+¦   ¦   input_batch_baseline.json
+¦   ¦   mc_vs_optimizer_rmax_plot.png
+¦   ¦   multi_run_mc_opt_comparison.png
+¦   ¦   multi_run_mc_opt_comparison_clean.png
+¦   ¦   overlay_top10_mc_opt.png
+¦   ¦   physchem_matrix_nudge_test.json
+¦   ¦   single_mixture_opt.json
+¦   ¦   
+¦   +---tmp
+¦           260830_1133_Vol01.xlsx
+¦           260830_1133_Vol01_err5pc.xlsx
+¦           260830_1133_Vol02.xlsx
+¦           260830_1133_Vol02_err5pc.xlsx
+¦           260830_1133_Vol03_Comps_only_CRYSS_Rmax.xlsx
+¦           260830_1757_Vol01.xlsx
+¦           260830_1757_Vol02.xlsx
+¦           260830_1757_Vol02_err5pc.xlsx
+¦           260830_1757_Vol03.xlsx
+¦           260831_0945_Vol01.xlsx
+¦           260831_0945_Vol01_err10pc.xlsx
+¦           260831_0945_Vol02.xlsx
+¦           260831_0945_Vol02_err10pc.xlsx
+¦           260831_0945_Vol03.xlsx
+¦           260831_0945_Vol03_err10pc - Copy.xlsx
+¦           260831_0945_Vol03_err10pc.xlsx
+¦           260831_1625_Vol01.xlsx
+¦           260831_1625_Vol02.xlsx
+¦           260831_1625_Vol03.xlsx
+¦           260902_0917_CRYSS_Rmax.xlsx
+¦           260902_0920_CRYSS_Rmax.xlsx
+¦           260902_0925_CRYSS_Rmax.xlsx
+¦           260902_0926_CRYSS_Rmax.xlsx
+¦           260902_0935_CRYSS_Rmax.xlsx
+¦           260902_0936_CRYSS_Rmax.xlsx
+¦           260902_0940_CRYSS_Rmax.xlsx
+¦           260902_0942_CRYSS_Rmax.xlsx
+¦           260902_0957_CRYSS_Rmax.xlsx
+¦           260902_0959_CRYSS_Rmax.xlsx
+¦           Pivot Analysis Xc pure-5pc error data.xlsx
+¦           Pivot Analysis Xs pure-5pc error data.xlsx
+¦           
++---docs
+¦       cryss_input_parser.pdf
+¦       input_parser_pipeline.pdf
+¦       mc_optimizer_summary.pdf
+¦       molefrac_to_mass.pdf
+¦       
++---engine
+¦       cascade.py
+¦       eutectic_path.py
+¦       gradient.py
+¦       solvent_gradient.py
+¦       xeu.py
+¦       __init__.py
+¦       
++---input_parser
+¦       excel_writer.py
+¦       loader.py
+¦       mixture_set_detector.py
+¦       parser.py
+¦       parser_harness.py
+¦       r_recalculator.py
+¦       settings.py
+¦       slice_builder.py
+¦       statisitcs.py
+¦       statistics.py
+¦       test_parser.py
+¦       xc_normalizer.py
+¦       
++---multxeu_core
+¦   ¦   mixture_input.py
+¦   ¦   __init__.py
+¦   ¦   
+¦   +---engine
+¦   ¦       cascade.py
+¦   ¦       eutectic_path.py
+¦   ¦       xeu.py
+¦   ¦       __init__.py
+¦   ¦       
+¦   +---multx_slicing_engine
+¦   ¦       canonical_eutectic.py
+¦   ¦       canonical_gradients.py
+¦   ¦       canonical_types.py
+¦   ¦       evaluate_recovery.py
+¦   ¦       gradient_engine.py
+¦   ¦       slice_generator.py
+¦   ¦       __init__.py
+¦   ¦       
+¦   +---solvers
+¦           halley.py
+¦           vba.py
+¦           __init__.py
+¦           
++---multx_slicing_engine
+¦       canonical_eutectic.py
+¦       canonical_gradients.py
+¦       canonical_types.py
+¦       evaluate_recovery.py
+¦       gradient_engine.py
+¦       matrix_layer.py
+¦       mixture_loader.py
+¦       slice_engine.py
+¦       slice_generator.py
+¦       __init__.py
+¦       
++---optimisers
+¦       monte_carlo.py
+¦       __init__.py
+¦       
++---solvers
+        halley.py
+        vba.py
+        __init__.py
+        

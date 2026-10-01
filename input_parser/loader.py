@@ -29,18 +29,38 @@ import pandas as pd
 
 DEBUG = False
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 
 def _normalize_header_key(key: object) -> str:
     text = str(key).strip().lower()
-    text = text.replace(" ", "_").replace("-", "_")
+    for token in (" ", "-", "/", "\\", "(", ")", "."):
+        text = text.replace(token, "_")
     text = text.replace("__", "_")
-    return text
+    return text.strip("_")
 
 
 def _normalize_component_index(raw_index: str) -> str:
     idx = raw_index.strip().strip("_")
     return idx
+
+
+def _normalize_text(value: object) -> str | None:
+    if value is None:
+        return None
+    if isinstance(value, float) and pd.isna(value):
+        return None
+    text = str(value).strip()
+    if not text or text.lower() == "nan":
+        return None
+    return text
+
+
+def _normalize_salt_derivative(value: object) -> str | None:
+    text = _normalize_text(value)
+    if text is None:
+        return None
+    return text.casefold()
 
 
 def load_slice_records(path: Path) -> list[dict]:
@@ -70,7 +90,7 @@ def load_slice_records(path: Path) -> list[dict]:
                 normalized[f"xl_{idx}"] = series
             continue
 
-        if comp_key in {"mixture_id", "slice_number", "recovery", "rel_sol_volume", "rmax", "rel_sol_volume_at_rmax", "rel_sol_volume_at_rmax_1", "id", "origin_id", "origin_plate_ref", "replicate_status", "replicate_index", "plate_number", "well_address", "block_number", "experiment_code"}:
+        if comp_key in {"mixture_id", "slice_number", "recovery", "rel_sol_volume", "rmax", "rel_sol_volume_at_rmax", "rel_sol_volume_at_rmax_1", "id", "origin_id", "origin_plate_ref", "replicate_status", "replicate_index", "plate_number", "well_address", "block_number", "experiment_code", "salt_derivative", "salt", "derivative"}:
             normalized[comp_key] = series
         elif comp_key in {"", "unnamed", "unnamed_0_level_0"}:
             if block_key and block_key != "unnamed":
@@ -90,7 +110,12 @@ def load_slice_records(path: Path) -> list[dict]:
         for key, value in row.items():
             if key is None:
                 continue
+            key_name = _normalize_header_key(key)
             if "unnamed" in str(key).lower():
+                continue
+            if key_name in {"salt_derivative", "salt", "derivative"}:
+                cleaned["salt_derivative"] = _normalize_salt_derivative(value)
+                cleaned["Salt/Derivative"] = _normalize_text(value)
                 continue
             if pd.isna(value):
                 cleaned[key] = None

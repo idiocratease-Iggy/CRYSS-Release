@@ -27,6 +27,7 @@
 import copy
 import logging
 from collections import defaultdict
+from typing import Dict, List
 
 import numpy as np
 import pandas as pd
@@ -34,8 +35,9 @@ import pandas as pd
 from qc_settings import R_TOLERANCE
 
 from .r_recalculator import compute_R_from_lever_rule, compute_row_R
+from .slice_builder import detect_replicates_in_slice, detect_slices_by_chemistry as _volume_aware_detect_slices
 
-QC_PRINT = True
+QC_PRINT = False
 _qc_seen = set()
 total_reps = 0
 rejected_reps = 0
@@ -56,18 +58,11 @@ DEBUG = False
 logger = logging.getLogger(__name__)
 
 # R, Xs, Xl all use BASE_TOL as the noise floor.
-XC_ANALYTICAL_TOL = 0.02
+XC_ANALYTICAL_TOL = 0.02  # mixture & replicate Xc tolerance
 BASE_TOL = 0.05
 
 xc_tol = XC_ANALYTICAL_TOL
 r_tol = BASE_TOL
-
-# mixture_set_detector.py
-
-import numpy as np
-from typing import List, Dict
-
-XC_ANALYTICAL_TOL = 0.02  # mixture & replicate Xc tolerance
 
 
 def _ensure_slice_metadata(rows: List[dict]) -> None:
@@ -84,44 +79,14 @@ def max_abs_diff(a: np.ndarray, b: np.ndarray) -> float:
 
 
 def detect_slices_by_chemistry(rows: List[dict], tol: float = BASE_TOL) -> List[dict]:
-    """Assign slice_number by computed R-driven gaps against the current slice representative."""
-    _ensure_slice_metadata(rows)
+    """Use the explicit volume-aware implementation so distinct solvent-volume slices are preserved.
 
-    if not rows:
-        return rows
-
-    indexed = []
-    for original_index, row in enumerate(rows):
-        if row.get("R") is None:
-            continue
-        try:
-            row_R = float(row["R"])
-        except (TypeError, ValueError):
-            continue
-        if not np.isfinite(row_R):
-            continue
-        indexed.append((original_index, row, row_R))
-
-    if not indexed:
-        return rows
-
-    indexed_sorted = sorted(indexed, key=lambda item: item[2], reverse=True)
-
-    adaptive_R_tol = max(float(tol), 1e-9)
-    current_slice = 1
-    slice_rep_R = indexed_sorted[0][2]
-    indexed_sorted[0][1]["slice_number"] = current_slice
-
-    for _, row, R in indexed_sorted[1:]:
-        if abs(R - slice_rep_R) > adaptive_R_tol:
-            current_slice += 1
-            slice_rep_R = R
-        row["slice_number"] = current_slice
-
-    for original_index, row, _ in indexed_sorted:
-        rows[original_index]["slice_number"] = row["slice_number"]
-
-    return rows
+    The module previously had a duplicate R-gap heuristic with the same name; that heuristic
+    collapses valid 3-volume mixtures when adjacent solvent-volume R values differ by less than
+    the global tolerance. The real parser semantics are to retain distinct rel_sol_volume groups
+    and treat repeated rows inside a volume as replicate measurements.
+    """
+    return _volume_aware_detect_slices(rows, tol)
 
 
 def group_by_mixture_id(rows: list[dict]) -> dict[str, list[dict]]:
@@ -152,69 +117,129 @@ def debug_row(row, canonical_xc, canonical_R, n_components):
     }
 
 
+def _is_degenerate_row(row: dict) -> bool:
+    xs = row.get("Xs")
+    if xs is None:
+        return False
+
+    xs_values = np.asarray(xs, dtype=float).reshape(-1)
+    if xs_values.size == 0:
+        return False
+
+    dominant_component = float(np.max(xs_values))
+    if dominant_component < 0.99:
+        return False
+
+    others = np.delete(xs_values, int(np.argmax(xs_values)))
+    return others.size == 0 or np.max(np.abs(others)) <= 1e-6
+
+
+def _reject_reason_for_row(row: dict, row_R: float | None, reference_R: float, tolerance: float) -> str:
+    """Return a human-readable rejection reason for a row that is outside the acceptable band.
+
+    The Rmax-0% label is reserved for physically degenerate rows, not for ordinary low-R points
+    in a valid three-slice mixture. A normal low-but-physical slice should only be described as
+    a replicate outlier.
+    """
+    if row_R is None:
+        return "replicate outlier"
+
+    r_value = float(row_R)
+    if not np.isfinite(r_value):
+        return "Rmax-0% record outside valid band"
+
+    if _is_degenerate_row(row):
+        return "Rmax-0% record outside valid band"
+
+    if r_value <= max(0.0, reference_R - tolerance):
+        return "replicate outlier"
+
+    return "replicate outlier"
+
+
 def detect_replicates(rows, canonical_xc, n_components, xc_tol, r_tol):
     accepted = []
     rejected = []
 
-    # Compute all R values
-    row_Rs = []
+    grouped_rows = defaultdict(list)
     for row in rows:
-        Ri = compute_row_R(canonical_xc, row, n_components)
-        if Ri is not None:
-            row_Rs.append(Ri)
-
-    if not row_Rs:
-        return rows, []
-
-    row_Rs = np.array(row_Rs)
-
-    # --- Outlier rejection for R ---
-    R_median = float(np.median(row_Rs))
-    deviations = np.abs(row_Rs - R_median)
-    mad_R = np.median(deviations)
-    threshold = 2.0 * mad_R
-
-    mask = deviations <= threshold
-    filtered_Rs = row_Rs[mask]
-
-    if filtered_Rs.size == 0:
-        filtered_Rs = row_Rs
-
-    canonical_R = float(np.mean(filtered_Rs))
+        slice_id = row.get("slice_number")
+        if slice_id is None:
+            slice_id = 1
+        grouped_rows[int(slice_id)].append(row)
 
     global total_reps, rejected_reps, replicate_devs
-    replicate_devs = []
+    if replicate_devs is None:
+        replicate_devs = []
 
-    for row in rows:
-        dbg = debug_row(row, canonical_xc, canonical_R, n_components)
-        R_i = compute_row_R(canonical_xc, row, n_components)
-        delta_r = abs(R_i - R_median) if R_i is not None else 0.0
-        replicate_devs.append(delta_r)
-        total_reps += 1
-
-    for row in rows:
-        dbg = debug_row(row, canonical_xc, canonical_R, n_components)
-
-        xc_dev = dbg["xc_deviation_max"]
-        R_i = compute_row_R(canonical_xc, row, n_components)
-        r_dev = dbg["R_deviation"]
-        delta_r = abs(R_i - R_median) if R_i is not None else 0.0
-
-        if abs(R_i - R_median) > R_TOLERANCE:
-            rejected_reps += 1
-            rejected.append(row)
-            mix_id = row.get("mixture_id", "UNKNOWN")
-            slice_id = row.get("slice_number", "unknown")
-            qc_event(
-                f"mixture {mix_id} solvent_vol {slice_id} rejected: replicate outlier "
-                f"(ΔR={abs(R_i - R_median):.3f})"
-            )
+    for slice_id, slice_rows in sorted(grouped_rows.items()):
+        if not slice_rows:
             continue
 
-        if xc_dev < xc_tol and (R_i is not None and abs(R_i - R_median) <= R_TOLERANCE):
-            accepted.append(row)
-        else:
-            rejected.append(row)
+        row_Rs = []
+        for row in slice_rows:
+            Ri = compute_row_R(canonical_xc, row, n_components)
+            if Ri is not None:
+                row_Rs.append(Ri)
+
+        if not row_Rs:
+            accepted.extend(slice_rows)
+            continue
+
+        row_Rs = np.asarray(row_Rs, dtype=float)
+        R_median = float(np.median(row_Rs))
+        deviations = np.abs(row_Rs - R_median)
+        mad_R = np.median(deviations)
+        threshold = 2.0 * mad_R if np.isfinite(mad_R) and mad_R > 0.0 else 0.0
+        if threshold <= 0.0:
+            threshold = R_TOLERANCE
+
+        canonical_R = float(np.mean(row_Rs))
+
+        for row in slice_rows:
+            dbg = debug_row(row, canonical_xc, canonical_R, n_components)
+            R_i = compute_row_R(canonical_xc, row, n_components)
+            delta_r = abs(R_i - R_median) if R_i is not None else 0.0
+            replicate_devs.append(delta_r)
+            total_reps += 1
+
+        for row in slice_rows:
+            dbg = debug_row(row, canonical_xc, canonical_R, n_components)
+            xc_dev = dbg["xc_deviation_max"]
+            R_i = compute_row_R(canonical_xc, row, n_components)
+            delta_r = abs(R_i - R_median) if R_i is not None else 0.0
+
+            if _is_degenerate_row(row):
+                rejected_reps += 1
+                rejected.append(row)
+                mix_id = row.get("mixture_id", "UNKNOWN")
+                qc_event(
+                    f"mixture {mix_id} solvent_vol {slice_id} rejected: Rmax-0% record outside valid band "
+                    f"(dR={abs(R_i - R_median) if R_i is not None else 0.0:.3f})"
+                )
+                continue
+
+            if R_i is None:
+                rejected_reps += 1
+                rejected.append(row)
+                continue
+
+            if abs(R_i - R_median) > threshold:
+                rejected_reps += 1
+                rejected.append(row)
+                mix_id = row.get("mixture_id", "UNKNOWN")
+                reason = _reject_reason_for_row(row, R_i, R_median, threshold)
+                qc_event(
+                    f"mixture {mix_id} solvent_vol {slice_id} rejected: {reason} "
+                    f"(dR={abs(R_i - R_median):.3f})"
+                )
+                continue
+
+            if xc_dev < xc_tol and abs(R_i - R_median) <= threshold:
+                accepted.append(row)
+            else:
+                rejected_reps += 1
+                rejected.append(row)
 
     return accepted, rejected
 
@@ -282,6 +307,60 @@ def filter_rows_by_xc(rows: list[dict], n_components: int, tol: float) -> list[d
     return accepted
 
 
+def _count_accepted_measurements(rows: list[dict]) -> int:
+    """Count only extra measurements beyond the first accepted row in each slice.
+
+    A single valid reading in a solvent slice is not a replicate. Repeated rows in the
+    same slice are replicate measurements, and their count is the number of extra rows
+    beyond the first accepted row for that solvent volume.
+    """
+    if not rows:
+        return 0
+
+    slice_rows: Dict[int, list[dict]] = defaultdict(list)
+    for row in rows:
+        slice_rows[int(row.get("slice_number", 1))].append(row)
+
+    return sum(max(len(entries) - 1, 0) for entries in slice_rows.values())
+
+
+def format_acceptance_summary(
+    mixture_id: str,
+    supplied_slice_count: int,
+    accepted_slice_count: int,
+    replicate_count: int,
+    r_min: float,
+    r_max: float,
+) -> str:
+    """Return a QC summary that distinguishes a genuine slice loss from normal replicate reduction.
+
+    Real data can legitimately present two solvent-volume slices but still leave only one
+    valid slice for the solver after noise filtering; in that case the wording must say that
+    the accepted slice count is lower than the number supplied.
+    """
+    rejected_slice_count = max(supplied_slice_count - accepted_slice_count, 0)
+
+    if supplied_slice_count > 0 and accepted_slice_count < supplied_slice_count:
+        if accepted_slice_count == 1:
+            slice_clause = (
+                f"1 solvent vol retained for solver from {supplied_slice_count} supplied "
+                f"({rejected_slice_count} rejected as noise)"
+            )
+        else:
+            slice_clause = (
+                f"{accepted_slice_count} solvent vols retained for solver from {supplied_slice_count} supplied "
+                f"({rejected_slice_count} rejected as noise)"
+            )
+    elif accepted_slice_count == 1:
+        slice_clause = "1 solvent vol retained for solver"
+    else:
+        slice_clause = f"{accepted_slice_count} solvent vols retained for solver"
+
+    return (
+        f"mixture {mixture_id} accepted: {slice_clause}, "
+        f"{replicate_count} replicate rows, accepted R-range {r_min:.3f}-{r_max:.3f}"
+    )
+
 
 def build_mixture_sets(rows: list[dict], n_components: int) -> dict[str, list[dict]]:
     _ensure_slice_metadata(rows)
@@ -340,24 +419,37 @@ def build_mixture_sets(rows: list[dict], n_components: int) -> dict[str, list[di
     r_tol = BASE_TOL
 
     for mid, mrows in grouped.items():
-        row_R_values = [float(row["R"]) for row in mrows if row.get("R") is not None]
-        if row_R_values:
-            median_R = np.median(row_R_values)
-            deviations = np.abs(np.asarray(row_R_values) - median_R)
-            mad_R = np.median(deviations)
-            threshold = 2.0 * mad_R if np.isfinite(mad_R) and mad_R > 0.0 else 0.0
-            if threshold > 0.0:
-                filtered = [
-                    row for row in mrows
-                    if row.get("R") is None or abs(float(row["R"]) - median_R) <= threshold
-                ]
-                if filtered:
-                    mrows[:] = filtered
-
         detect_slices_by_chemistry(mrows, BASE_TOL)
         slice_count = len({int(row.get("slice_number")) for row in mrows if row.get("slice_number") is not None})
         if DEBUG:
             logger.debug("AFTER slice detection: mixture_id=%s, rows=%s, slices=%s", mid, len(mrows), slice_count)
+
+        slice_groups: Dict[int, list[dict]] = defaultdict(list)
+        for row in mrows:
+            slice_groups[int(row.get("slice_number", 1))].append(row)
+
+        for slice_id, slice_rows in list(slice_groups.items()):
+            row_R_values = [float(row["R"]) for row in slice_rows if row.get("R") is not None]
+            if row_R_values:
+                median_R = np.median(row_R_values)
+                deviations = np.abs(np.asarray(row_R_values) - median_R)
+                mad_R = np.median(deviations)
+                threshold = 2.0 * mad_R if np.isfinite(mad_R) and mad_R > 0.0 else 0.0
+                if threshold <= 0.0:
+                    threshold = BASE_TOL
+                slice_rows[:] = [
+                    row for row in slice_rows
+                    if row.get("R") is None or abs(float(row["R"]) - median_R) <= threshold
+                ]
+
+        supplied_slice_count = len(slice_groups)
+        mrows[:] = [row for rows in slice_groups.values() for row in rows]
+
+        for slice_rows in slice_groups.values():
+            replicate_groups = detect_replicates_in_slice(slice_rows, xc_tol=XC_ANALYTICAL_TOL, r_tol=BASE_TOL)
+            for replicate_id, rep_rows in replicate_groups.items():
+                for rep_row in rep_rows:
+                    rep_row["replicate_number"] = replicate_id
 
         if len(mrows) == 1:
             global total_reps
@@ -366,7 +458,17 @@ def build_mixture_sets(rows: list[dict], n_components: int) -> dict[str, list[di
             r_values = [float(row["R"]) for row in mrows if row.get("R") is not None]
             r_min = min(r_values) if r_values else 0.0
             r_max = max(r_values) if r_values else 0.0
-            qc_event(f"mixture {mid} accepted: {slice_count} solvent vols, R-range {r_min:.3f}–{r_max:.3f}")
+            replicate_count = _count_accepted_measurements(mrows)
+            qc_event(
+                format_acceptance_summary(
+                    mid,
+                    supplied_slice_count=supplied_slice_count,
+                    accepted_slice_count=len({int(row.get("slice_number")) for row in mrows if row.get("slice_number") is not None}),
+                    replicate_count=replicate_count,
+                    r_min=r_min,
+                    r_max=r_max,
+                )
+            )
             continue
 
         # Xc filtering uses xc_tol
@@ -386,15 +488,32 @@ def build_mixture_sets(rows: list[dict], n_components: int) -> dict[str, list[di
             r_tol=BASE_TOL
         )
 
+        invalid_band_rejections = 0
         for row in rejected:
             slice_id = row.get("slice_number", "unknown")
-            qc_event(f"mixture {mid} solvent_vol {slice_id} rejected: replicate outlier")
+            R_i = row.get("R")
+            reference_R = float(np.median([float(r["R"]) for r in mrows if r.get("R") is not None])) if any(r.get("R") is not None for r in mrows) else 0.0
+            reason = _reject_reason_for_row(row, R_i, reference_R, BASE_TOL)
+            if reason == "Rmax-0% record outside valid band":
+                invalid_band_rejections += 1
+            qc_event(f"mixture {mid} solvent_vol {slice_id} rejected: {reason}")
 
-        validated[mid] = copy.deepcopy(mrows)
+        validated[mid] = copy.deepcopy(accepted)
+        accepted_slice_count = len({int(row.get("slice_number")) for row in accepted if row.get("slice_number") is not None})
+        accepted_replicate_count = _count_accepted_measurements(accepted)
         accepted_r_values = [float(row["R"]) for row in accepted if row.get("R") is not None]
         r_min = min(accepted_r_values) if accepted_r_values else 0.0
         r_max = max(accepted_r_values) if accepted_r_values else 0.0
-        qc_event(f"mixture {mid} accepted: {slice_count} solvent vols, accepted R-range {r_min:.3f}–{r_max:.3f}")
+        qc_event(
+            format_acceptance_summary(
+                mid,
+                supplied_slice_count=supplied_slice_count,
+                accepted_slice_count=accepted_slice_count,
+                replicate_count=accepted_replicate_count,
+                r_min=r_min,
+                r_max=r_max,
+            )
+        )
 
     return validated
 

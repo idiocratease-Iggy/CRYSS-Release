@@ -32,6 +32,7 @@ from .r_recalculator import canonical_R_for_slice
 
 DEBUG = False
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 
 @dataclass
@@ -73,8 +74,23 @@ def _ensure_slice_metadata(rows: List[dict]) -> None:
             row["replicate_number"] = 0
 
 
+def _row_rel_sol_volume(row: dict) -> float | None:
+    for key in ("rel_sol_volume", "relative_sol_volume", "solvent_volume", "volume"):
+        value = row.get(key)
+        if value is None:
+            continue
+        try:
+            number = float(value)
+        except (TypeError, ValueError):
+            continue
+        if np.isfinite(number):
+            return number
+    return None
+
+
 def detect_slices_by_chemistry(rows: List[dict], tol: float = BASE_TOL) -> List[dict]:
-    """Assign slice_number by Xs/Xl chemistry for rows within the same mixture."""
+    """Assign slice_number by explicit solvent-volume metadata when present,
+    otherwise fall back to Xs/Xl chemistry grouping for legacy rows."""
     _ensure_slice_metadata(rows)
 
     if not rows:
@@ -97,6 +113,50 @@ def detect_slices_by_chemistry(rows: List[dict], tol: float = BASE_TOL) -> List[
             xl_values = np.asarray(row.get("Xl"), dtype=float).tolist()
         return xs_values, xl_values
 
+    volume_rows = [row for row in rows if _row_rel_sol_volume(row) is not None]
+    if volume_rows:
+        slice_reps: list[dict] = []
+        for row_index, row in enumerate(rows):
+            volume = _row_rel_sol_volume(row)
+            if volume is None:
+                continue
+
+            placed = False
+            for sn, rep in enumerate(slice_reps, start=1):
+                rep_volume = _row_rel_sol_volume(rep)
+                if rep_volume is not None and same_experiment_group(row, rep) and abs(volume - rep_volume) <= 1e-6:
+                    row["slice_number"] = sn
+                    placed = True
+                    break
+
+            if not placed:
+                row["slice_number"] = len(slice_reps) + 1
+                slice_reps.append(copy.deepcopy(row))
+
+            if DEBUG:
+                logger.debug("AFTER volume-based slice assignment:")
+                logger.debug("  row_index=%s", row_index)
+                logger.debug("  slice_number=%s", row.get("slice_number"))
+                logger.debug("  rel_sol_volume=%s", volume)
+
+        for row in rows:
+            if _row_rel_sol_volume(row) is None:
+                xs, xl = xs_xl_values(row)
+                placed = False
+                for sn, rep in enumerate(slice_reps, start=1):
+                    rep_xs = _as_float_array(rep.get("Xs"))
+                    rep_xl = _as_float_array(rep.get("Xl"))
+                    xs_diff = 0.0 if len(xs) == 0 or rep_xs.size == 0 else max_abs_diff(np.asarray(xs, dtype=float), rep_xs)
+                    xl_diff = 0.0 if len(xl) == 0 or rep_xl.size == 0 else max_abs_diff(np.asarray(xl, dtype=float), rep_xl)
+                    if same_experiment_group(row, rep) and xs_diff < tol and xl_diff < tol:
+                        row["slice_number"] = sn
+                        placed = True
+                        break
+                if not placed:
+                    row["slice_number"] = len(slice_reps) + 1
+                    slice_reps.append(copy.deepcopy(row))
+        return rows
+
     slice_reps: list[dict] = []
     for row_index, row in enumerate(rows):
         mixture_id = row.get("mixture_id", "UNKNOWN")
@@ -105,13 +165,13 @@ def detect_slices_by_chemistry(rows: List[dict], tol: float = BASE_TOL) -> List[
 
         placed = False
         for sn, rep in enumerate(slice_reps, start=1):
-            rep_xs = np.asarray(rep.get("Xs") or [], dtype=float)
-            rep_xl = np.asarray(rep.get("Xl") or [], dtype=float)
+            rep_xs = _as_float_array(rep.get("Xs"))
+            rep_xl = _as_float_array(rep.get("Xl"))
 
             xs_diff = 0.0 if len(xs) == 0 or rep_xs.size == 0 else max_abs_diff(np.asarray(xs, dtype=float), rep_xs)
             xl_diff = 0.0 if len(xl) == 0 or rep_xl.size == 0 else max_abs_diff(np.asarray(xl, dtype=float), rep_xl)
 
-            if xs_diff < tol and xl_diff < tol:
+            if same_experiment_group(row, rep) and xs_diff < tol and xl_diff < tol:
                 row["slice_number"] = sn
                 placed = True
                 break
@@ -152,7 +212,7 @@ def group_rows_by_slice_composition(rows: List[dict]) -> Dict[int, List[dict]]:
             xs_ok = xs is None or xs_ref is None or max_abs_diff(xs, xs_ref) < BASE_TOL
             xl_ok = xl is None or xl_ref is None or max_abs_diff(xl, xl_ref) < BASE_TOL
 
-            if xs_ok and xl_ok:
+            if same_experiment_group(row, rep) and xs_ok and xl_ok:
                 row["slice_number"] = sn
                 slices.setdefault(sn, []).append(row)
                 placed = True
@@ -167,6 +227,39 @@ def group_rows_by_slice_composition(rows: List[dict]) -> Dict[int, List[dict]]:
     return slices
 
 
+def _normalise_tag(value) -> str | None:
+    if value is None:
+        return None
+    try:
+        if np.isnan(value):
+            return None
+    except TypeError:
+        pass
+    text = str(value).strip()
+    if not text:
+        return None
+    return text.casefold()
+
+
+def same_experiment_group(a: dict, b: dict) -> bool:
+    a_tag = _normalise_tag(a.get("salt_derivative"))
+    b_tag = _normalise_tag(b.get("salt_derivative"))
+    if a_tag is None:
+        a_tag = _normalise_tag(a.get("Salt/Derivative"))
+    if b_tag is None:
+        b_tag = _normalise_tag(b.get("Salt/Derivative"))
+    if a_tag is None or b_tag is None:
+        return True
+    return a_tag == b_tag
+
+
+def _as_float_array(value) -> np.ndarray:
+    if value is None:
+        return np.asarray([], dtype=float)
+    arr = np.asarray(value, dtype=float)
+    return arr.reshape(-1) if arr.ndim > 1 else arr
+
+
 def detect_replicates_in_slice(
     rows: List[dict],
     xc_tol: float = XC_ANALYTICAL_TOL,
@@ -179,18 +272,18 @@ def detect_replicates_in_slice(
     replicates: Dict[int, List[dict]] = {}
 
     for row in rows:
-        xs = np.asarray(row.get("Xs") or [], dtype=float)
-        xl = np.asarray(row.get("Xl") or [], dtype=float)
+        xs = _as_float_array(row.get("Xs"))
+        xl = _as_float_array(row.get("Xl"))
 
         placed = False
         for rep in reps:
-            rep_xs = np.asarray(rep.get("Xs") or [], dtype=float)
-            rep_xl = np.asarray(rep.get("Xl") or [], dtype=float)
+            rep_xs = _as_float_array(rep.get("Xs"))
+            rep_xl = _as_float_array(rep.get("Xl"))
 
             xs_diff = 0.0 if xs.size == 0 or rep_xs.size == 0 else max_abs_diff(xs, rep_xs)
             xl_diff = 0.0 if xl.size == 0 or rep_xl.size == 0 else max_abs_diff(xl, rep_xl)
 
-            if xs_diff < BASE_TOL and xl_diff < BASE_TOL:
+            if same_experiment_group(row, rep) and xs_diff < BASE_TOL and xl_diff < BASE_TOL:
                 row["replicate_number"] = rep["replicate_number"]
                 replicates.setdefault(row["replicate_number"], []).append(row)
                 placed = True
@@ -224,8 +317,8 @@ def group_rows_by_slice_number(rows: List[dict]) -> Dict[int, List[dict]]:
             logger.debug("  mixture_id=%s", mixture_id)
             logger.debug("  row_index=%s", row_index)
             logger.debug("  slice_number_before=%s", int(sn) if sn is not None else None)
-            logger.debug("  Xs=%s", np.asarray(row.get("Xs") or [], dtype=float).tolist())
-            logger.debug("  Xl=%s", np.asarray(row.get("Xl") or [], dtype=float).tolist())
+            logger.debug("  Xs=%s", _as_float_array(row.get("Xs")).tolist())
+            logger.debug("  Xl=%s", _as_float_array(row.get("Xl")).tolist())
         grouped[int(sn)].append(copy.deepcopy(row))
 
     return grouped
@@ -239,8 +332,8 @@ def canonical_Xs_for_slice(rows: List[dict], n_components: int) -> List[float]:
             logger.debug("  mixture_id=%s", row.get("mixture_id", "UNKNOWN"))
             logger.debug("  slice_number=%s", row.get("slice_number"))
             logger.debug("  row_index=%s", row_index)
-            logger.debug("  Xs=%s", np.asarray(row.get("Xs") or [], dtype=float).tolist())
-            logger.debug("  Xl=%s", np.asarray(row.get("Xl") or [], dtype=float).tolist())
+            logger.debug("  Xs=%s", _as_float_array(row.get("Xs")).tolist())
+            logger.debug("  Xl=%s", _as_float_array(row.get("Xl")).tolist())
 
     xs_matrix = [
         [row[f"xs_{i+1}"] for i in range(n_components)]
@@ -264,8 +357,8 @@ def canonical_Xl_for_slice(rows: List[dict], n_components: int) -> List[float]:
             logger.debug("  mixture_id=%s", row.get("mixture_id", "UNKNOWN"))
             logger.debug("  slice_number=%s", row.get("slice_number"))
             logger.debug("  row_index=%s", row_index)
-            logger.debug("  Xs=%s", np.asarray(row.get("Xs") or [], dtype=float).tolist())
-            logger.debug("  Xl=%s", np.asarray(row.get("Xl") or [], dtype=float).tolist())
+            logger.debug("  Xs=%s", _as_float_array(row.get("Xs")).tolist())
+            logger.debug("  Xl=%s", _as_float_array(row.get("Xl")).tolist())
 
     xl_matrix = [
         [row[f"xl_{i+1}"] for i in range(n_components)]
@@ -333,8 +426,8 @@ def build_slices_for_mixture(
                 logger.debug("  mixture_id=%s", mixture_id)
                 logger.debug("  slice_number=%s", slice_number)
                 logger.debug("  row_index=%s", row_index)
-                logger.debug("  Xs=%s", np.asarray(row.get("Xs") or [], dtype=float).tolist())
-                logger.debug("  Xl=%s", np.asarray(row.get("Xl") or [], dtype=float).tolist())
+                logger.debug("  Xs=%s", _as_float_array(row.get("Xs")).tolist())
+                logger.debug("  Xl=%s", _as_float_array(row.get("Xl")).tolist())
 
         detect_replicates_in_slice(slice_rows, XC_ANALYTICAL_TOL, BASE_TOL)
         R_slice = canonical_R_for_slice(slice_rows, canonical_xc, n_components)
