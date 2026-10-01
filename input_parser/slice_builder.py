@@ -59,6 +59,7 @@ from typing import List, Dict
 
 BASE_TOL = 0.05      # R, Xs, Xl all use BASE_TOL as the noise floor.
 XC_ANALYTICAL_TOL = 0.02
+NO_VOLUME_SLICE_TOL = 0.04
 
 
 def max_abs_diff(a: np.ndarray, b: np.ndarray) -> float:
@@ -90,11 +91,18 @@ def _row_rel_sol_volume(row: dict) -> float | None:
 
 def detect_slices_by_chemistry(rows: List[dict], tol: float = BASE_TOL) -> List[dict]:
     """Assign slice_number by explicit solvent-volume metadata when present,
-    otherwise fall back to Xs/Xl chemistry grouping for legacy rows."""
+    otherwise fall back to Xs/Xl chemistry grouping for legacy rows.
+
+    When the workbook metadata has been stripped, the generic 0.05 chemistry tolerance is
+    too loose and can merge adjacent valid solvent-volume slices. A tighter fallback avoids
+    that while still keeping near-identical replicate rows together.
+    """
     _ensure_slice_metadata(rows)
 
     if not rows:
         return rows
+
+    fallback_tol = min(float(tol), NO_VOLUME_SLICE_TOL)
 
     def xs_xl_values(row: dict) -> tuple[list[float], list[float]]:
         xs_values = []
@@ -148,7 +156,7 @@ def detect_slices_by_chemistry(rows: List[dict], tol: float = BASE_TOL) -> List[
                     rep_xl = _as_float_array(rep.get("Xl"))
                     xs_diff = 0.0 if len(xs) == 0 or rep_xs.size == 0 else max_abs_diff(np.asarray(xs, dtype=float), rep_xs)
                     xl_diff = 0.0 if len(xl) == 0 or rep_xl.size == 0 else max_abs_diff(np.asarray(xl, dtype=float), rep_xl)
-                    if same_experiment_group(row, rep) and xs_diff < tol and xl_diff < tol:
+                    if same_experiment_group(row, rep) and xs_diff < fallback_tol and xl_diff < fallback_tol:
                         row["slice_number"] = sn
                         placed = True
                         break
@@ -171,7 +179,7 @@ def detect_slices_by_chemistry(rows: List[dict], tol: float = BASE_TOL) -> List[
             xs_diff = 0.0 if len(xs) == 0 or rep_xs.size == 0 else max_abs_diff(np.asarray(xs, dtype=float), rep_xs)
             xl_diff = 0.0 if len(xl) == 0 or rep_xl.size == 0 else max_abs_diff(np.asarray(xl, dtype=float), rep_xl)
 
-            if same_experiment_group(row, rep) and xs_diff < tol and xl_diff < tol:
+            if same_experiment_group(row, rep) and xs_diff < fallback_tol and xl_diff < fallback_tol:
                 row["slice_number"] = sn
                 placed = True
                 break

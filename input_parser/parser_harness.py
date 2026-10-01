@@ -93,9 +93,9 @@ def run_parser(input_file: Path | None = None, output_file: Path | None = None):
     global LAST_INPUT_FILE
     LAST_INPUT_FILE = input_file
 
-    # V1.0 release build: keep the parser silent unless a caller explicitly enables QC output.
-    msd.QC_PRINT = False
-    mixtures = parse_nodes_excel(input_file, write_excel=False, output_path=output_file, quiet=True)
+    # Debug mode restored for backend GUI / parser inspection.
+    msd.QC_PRINT = True
+    mixtures = parse_nodes_excel(input_file, write_excel=False, output_path=output_file, quiet=False)
     return mixtures
 
 

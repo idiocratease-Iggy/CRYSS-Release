@@ -572,6 +572,15 @@ def test_perturbed_261001_keeps_three_distinct_volume_slices_when_volume_metadat
     assert {s.slice_number for s in mix.slices} == {1, 2, 3}
 
 
+def test_perturbed_261001_keeps_three_distinct_volume_slices_when_volume_metadata_is_missing():
+    mixtures = parse_nodes_excel(Path("data/261001_1244_Vol03_err6pc_sans.xlsx"), quiet=True)
+
+    mix = mixtures["261001_003"]
+    assert len(mix.slices) == 3, f"261001_003 collapsed to {len(mix.slices)} slices without rel_sol_volume metadata"
+    assert sum(len(s.raw_rows) for s in mix.slices) == 4, "261001_003 should keep 4 rows across 3 slices even when metadata is stripped"
+    assert {s.slice_number for s in mix.slices} == {1, 2, 3}
+
+
 def test_parse_nodes_excel_reports_nonzero_replicate_deviation_stats_for_noisy_data():
     parse_nodes_excel(Path("data/261001_1244_Vol02_err6pc.xlsx"), quiet=True)
 

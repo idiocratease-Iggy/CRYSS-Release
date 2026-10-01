@@ -102,7 +102,7 @@ desktop.ini
 # ------------------------------
 # Keep this line if tree snapshots are local diagnostics
 tree.txt
-
+/data
 # Generated data artifacts (uncomment if you want cleaner repo history):
 # data/tmp/
 # cryss_core/data/tmp/
