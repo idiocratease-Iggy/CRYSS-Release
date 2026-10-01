@@ -8,6 +8,9 @@ a = Analysis(
     datas=[
         ('cryss_core/cryss.png', '.'),
         ('cryss_core/cryss.png', 'cryss_core'),
+        ('LICENSE', '.'),
+        ('CITATION.cff', '.'),
+        ('citation.md', '.'),
     ],
     hiddenimports=[],
     hookspath=[],
