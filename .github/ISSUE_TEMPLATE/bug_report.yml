@@ -1,0 +1,100 @@
+name: Bug report
+description: Report a reproducible problem
+title: "[Bug]: "
+labels: ["bug", "needs-triage"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting! Please fill this out so we can reproduce and fix quickly.
+
+  - type: input
+    id: summary
+    attributes:
+      label: Summary
+      description: Short description of the problem
+      placeholder: App crashes when opening settings
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Exact steps, in order
+      placeholder: |
+        1. Open app
+        2. Click Settings
+        3. Select Profile
+        4. Crash
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      placeholder: Settings page should open normally
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      placeholder: App closes with no error dialog
+    validations:
+      required: true
+
+  - type: dropdown
+    id: version
+    attributes:
+      label: Version
+      options:
+        - V2.0
+        - Other (specify below)
+    validations:
+      required: true
+
+  - type: input
+    id: other_version
+    attributes:
+      label: Other version (if not V2.0)
+      placeholder: e.g., v1.9.3
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Windows
+        - macOS
+        - Linux
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: environment
+    attributes:
+      label: Environment details
+      description: OS version, device, architecture, etc.
+      placeholder: Windows 11 23H2, x64
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / screenshots
+      description: Paste relevant logs or drag screenshots here
+      render: shell
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Pre-submit checks
+      options:
+        - label: I searched existing issues and didn’t find a duplicate
+          required: true
+        - label: I can reproduce this on the latest release
+          required: true
