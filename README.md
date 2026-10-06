@@ -27,7 +27,7 @@ In practical terms, CRYSS is designed to accelerate progression from:
 ## Repository
 
 - **Owner:** `idiocratease-Iggy`
-- **Repo:** `CRYSS-Release-V1.0`
+- **Repo:** `CRYSS-Release`
 - **Description:** `Core CRYSS Pipeline`
 
 ## What this project contains
@@ -44,7 +44,7 @@ This release bundles the CRYSS app suite code and assets for:
 ## Top-level structure (tailored)
 
 ```text
-CRYSS-Release-V1.0/
+CRYSS-Release/
 ├── main.py
 ├── mixture_input.py
 ├── qc_settings.py
@@ -141,8 +141,8 @@ Input/output workbooks, plots, JSON configs, and temporary run artifacts.
 ## Setup
 
 ```bash
-git clone https://github.com/idiocratease-Iggy/CRYSS-Release-V1.0.git
-cd CRYSS-Release-V1.0
+git clone https://github.com/idiocratease-Iggy/CRYSS-Release.git
+cd CRYSS-Release
 python -m venv .venv
 ```
 
