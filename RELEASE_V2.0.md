@@ -1,23 +1,3 @@
-> **Note:** Windows Defender may block install as an unknown app.  
-> We have logged this with Microsoft for a Defender update. Current status is below.
-
----
-
-### Submission details
-
-- **File:** `cryss_instalv2.0.zip`  
-- **Submission ID:** `1c897fb7-221d-425d-8e65-d3a955885809`  
-- **Status:** In progress  
-- **Submitted by:** idiocratease@####  
-- **Submitted:** Oct 6, 2026 14:13:45  
-- **User Opinion:** `PuaFalsePositive`  
-- **Analyst comments:**  
-  The submitted files do not meet our criteria for malware or potentially unwanted applications.  
-  No detection will be added for these files.
-
-In the meantime, until Defender recognizes the app from the submission above, it can be installed by selecting **"Run anyway"**.
-
----
 
 ## Included standalone Windows applications
 
